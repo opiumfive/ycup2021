@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name" translatable="false">ycupyoga</string>
+    <string name="label_input" translatable="false">Input:</string>
+</resources>

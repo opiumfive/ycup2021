@@ -1,0 +1,65 @@
+apply plugin: 'com.android.application'
+
+apply plugin: 'kotlin-android'
+
+apply plugin: 'kotlin-android-extensions'
+
+android {
+
+    compileSdkVersion 28
+
+    defaultConfig {
+        applicationId "com.opiumfive.ycupwifi"
+        minSdkVersion 26
+        targetSdkVersion 28
+        versionCode 2
+        versionName "0.01"
+
+        ndk {
+            abiFilters 'arm64-v8a', 'armv7a'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+
+    /**
+     * Долго пытался в sensor fusion алгоритмы, чтобы получать местоположение только по 3 сенсорам (магнитометр, акселерометр, гироскоп)
+     * т.е. по rotation vector определяем направление, а отдельно интегрируя акселерометр, получаем дельта расстояние
+     * так и не смог добиться нормальных результатов, даже если добиться какой то хоть и не очень ровной траектории на 1 устройстве
+     * то на остальных все ломается, а адаптивную фильтрацию делать как-то долго, не зная готовых решений
+     *
+     * В итоге вернулся к ARCore, там состственно есть worldCoordinates, есть так же и обнаружение поверхностей (но я пока не использую)
+     * а так же получается красивая AR визуализация, в какой точке дома сигнал хороший  в какой плохой
+     *
+     * Возможные доработки:
+     * - решение без AR с адаптивным sensor fusion
+     * - выбор ssid
+     */
+
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation"org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation 'androidx.appcompat:appcompat:1.0.0'
+    implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
+    implementation 'com.google.ar.sceneform:core:1.4.0'
+    implementation 'com.google.ar.sceneform.ux:sceneform-ux:1.4.0'
+}
+
+apply plugin: 'com.google.ar.sceneform.plugin'
+
+/*
+sceneform.asset('sampledata/models/andy.obj',
+        'default',
+        'sampledata/models/andy.sfa',
+        'src/main/res/raw/andy')
+ */

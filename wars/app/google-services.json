@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "590137650694",
+    "firebase_url": "https://ycupwars-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "ycupwars",
+    "storage_bucket": "ycupwars.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:590137650694:android:d703b6febd5f53b3155d87",
+        "android_client_info": {
+          "package_name": "com.opiumfive.ycupwars"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "590137650694-mb4lvrsdmg751udvobs4vusg50m4s6q3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBFL7E46yYcS2XllVCIJGhPThJd-6vRgLA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "590137650694-mb4lvrsdmg751udvobs4vusg50m4s6q3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

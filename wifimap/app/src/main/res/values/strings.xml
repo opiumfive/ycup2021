@@ -1,0 +1,9 @@
+<resources>
+	<string name="app_name">ycupwifi</string>
+
+	<string name="signal_strength">Сила сигнала %1$d</string>
+
+	<string name="instructions_step_1">Двигайте смартфоном по кругу пока не увидите точечную плоскость</string>
+	<string name="instructions_step_2">Нажмите на экран для начала мапинга Wifi в AR</string>
+
+</resources>
