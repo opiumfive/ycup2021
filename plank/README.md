@@ -4,4 +4,4 @@
 при начале и окончании упражнения звучит звуковая индикация
 
 В качестве доработок могу отметить:
-    * Pose classification - https://google.github.io/mediapipe/solutions/pose_classification.html
+- Pose classification - https://google.github.io/mediapipe/solutions/pose_classification.html
