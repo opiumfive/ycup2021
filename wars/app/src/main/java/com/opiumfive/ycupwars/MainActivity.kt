@@ -235,11 +235,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         findViewById<View>(R.id.rootView).setOnClickListener {
             val hittedName = overlayView?.piu()
-            if (hittedName != null) {
-                toast("Вы попали в ${hittedName.name}")
-                killEnemy(hittedName.uid)
+
+            if (myData?.alive == true) {
+
+                if (hittedName != null) {
+                    toast("Вы попали в ${hittedName.name}")
+                    killEnemy(hittedName.uid)
+                } else {
+                    toast("Промах")
+                }
             } else {
-                toast("Промах")
+                toast("Вы не в игре")
             }
 
         }
