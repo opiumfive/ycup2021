@@ -19,5 +19,13 @@
 
     </androidx.appcompat.widget.Toolbar>
 
+    <TextView
+        android:layout_width="match_parent"
+        android:textColor="#fff"
+        android:text="Установите телефон возле стены так, чтобы камера захватывала вас в планке в полный рост. При успешном распознавании упражнения прозвучит звук"
+        android:textAlignment="center"
+        android:layout_margin="16dp"
+        android:layout_height="wrap_content" />
+
     <include layout="@layout/bottom_sheet_layout"/>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

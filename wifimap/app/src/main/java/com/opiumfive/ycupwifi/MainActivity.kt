@@ -1,6 +1,11 @@
 package com.opiumfive.ycupwifi
 
+import android.R.attr.textColor
+import android.R.attr.textSize
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.net.wifi.WifiManager
 import android.os.Bundle
 import android.os.Handler
@@ -8,11 +13,11 @@ import android.util.Log
 import android.util.SparseArray
 import android.view.MotionEvent
 import android.view.View
-import android.widget.ArrayAdapter
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.ColorUtils
 import com.google.ar.core.HitResult
 import com.google.ar.core.Plane
+import com.google.ar.core.Pose
 import com.google.ar.core.TrackingState
 import com.google.ar.sceneform.AnchorNode
 import com.google.ar.sceneform.FrameTime
@@ -31,10 +36,12 @@ data class Reading(var strength: Int, var node: TransformableNode?)
 
 class MainActivity : AppCompatActivity() {
     private var materialColors: MutableList<Material> = mutableListOf()
+    private var materialColorsInt: MutableList<Color> = mutableListOf()
 
     private val heatMap = SparseArray<SparseArray<Reading>>()
 
     private var arFragment: ArFragment? = null
+    private var started = false
 
     private val handler = Handler()
     private val viewUpdateTask = Runnable {
@@ -61,6 +68,39 @@ class MainActivity : AppCompatActivity() {
 
         gridView = GridView(this, mainData)
         gridViewFrameLayout.addView(gridView)
+
+        button.setOnClickListener {
+            if (!started) {
+                button.text = "Закончить"
+                wifi_ssid_strength.visibility = View.VISIBLE
+                gridViewFrameLayout.visibility = View.VISIBLE
+                instructions_view.visibility = View.GONE
+                started = true
+                val ar = arFragment ?: return@setOnClickListener
+                if (anchorNode == null && ar.arSceneView.arFrame.camera.trackingState === TrackingState.TRACKING) {
+                    val ar = arFragment ?: return@setOnClickListener
+                    val cameraPos = ar.arSceneView.scene.camera.worldPosition
+
+
+                    val pos = floatArrayOf(cameraPos.x, 0f, cameraPos.z)
+                    val rotation = floatArrayOf(0f, 0f, 0f, 1f)
+                    val anchor = ar.arSceneView.session.createAnchor(Pose(pos, rotation))
+                    anchorNode = AnchorNode(anchor)
+                    anchorNode?.setParent(ar.arSceneView.scene)
+
+                    rootNode = Node()
+                    rootNode?.setParent(anchorNode)
+                }
+            } else {
+                started = false
+                //TODO стоп и построить карту
+                gridViewFrameLayout?.layoutParams?.height = 1000
+                gridViewFrameLayout?.layoutParams?.width = 1000
+                gridView?.isShowNumbers = true
+                gridView?.requestLayout()
+                button.visibility = View.GONE
+            }
+        }
     }
 
     private fun onSceneUpdate(frameTime: FrameTime) {
@@ -69,7 +109,7 @@ class MainActivity : AppCompatActivity() {
         if (ar.arSceneView.arFrame.camera.trackingState === TrackingState.TRACKING) {
             if (anchorNode == null) {
                 instructions_view.setText(R.string.instructions_step_2)
-
+                button.visibility = View.VISIBLE
                 instructions_view.visibility = View.VISIBLE
             } else {
                 instructions_view.visibility = View.GONE
@@ -92,6 +132,7 @@ class MainActivity : AppCompatActivity() {
             val color = Color()
             color.set(colorInt)
 
+            materialColorsInt.add(color)
             val materialFuture = MaterialFactory.makeOpaqueWithColor(this, color)
             colors.add(materialFuture)
         }
@@ -167,8 +208,8 @@ class MainActivity : AppCompatActivity() {
 
         Log.d("adam", "scaleFactor: $scaleFactor level: $level")
 
-        val height = 0.75f //* scaleFactor
-        val size = 0.075f
+        val height = 0.25f //* scaleFactor
+        val size = 0.05f
 
         val material = getBarColor(scaleFactor)
 
@@ -192,27 +233,37 @@ class MainActivity : AppCompatActivity() {
         return materialColors[colorIndex]
     }
 
+    private fun getBarColor2(level: Int, ratio: Float, listener: (Material) -> Unit) {
+        val builder = Texture.builder()
+        val colorIndex = ((materialColors.size - 1) * ratio).toInt()
+        val matColor = materialColorsInt[colorIndex]
+
+
+        val text = level.toString()
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        paint.textSize = 10f
+        paint.color = android.graphics.Color.WHITE
+        paint.textAlign = Paint.Align.CENTER
+        val baseline: Float = -paint.ascent() // ascent() is negative
+        val image = Bitmap.createBitmap((paint.measureText(text) + 0.5f).toInt(), (baseline + paint.descent() + 0.5f).toInt(), Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(image)
+        canvas.drawText(text, 0f, baseline, paint)
+
+        matColor.g
+        builder.setSource(image)
+        builder.build().thenAccept {
+            MaterialFactory.makeOpaqueWithTexture(this, it).thenAccept {
+                listener.invoke(it)
+            }
+        }
+    }
+
     private var anchorNode: AnchorNode? = null
     private var rootNode: Node? = null
     private var lastLocation: Vector3? = null
 
     private fun onTapArPlaneListener(hitResult: HitResult, plane: Plane, motionEvent: MotionEvent) {
         val ar = arFragment ?: return
-
-        if (ar.arSceneView.arFrame.camera.trackingState === TrackingState.TRACKING) {
-            val trackable = hitResult.trackable
-            if (trackable is Plane && trackable.isPoseInPolygon(hitResult.hitPose)) {
-                // Create the Anchor
-                if (anchorNode == null) {
-                    val anchor = hitResult.createAnchor()
-                    anchorNode = AnchorNode(anchor)
-                    anchorNode?.setParent(ar.arSceneView.scene)
-
-                    rootNode = Node()
-                    rootNode?.setParent(anchorNode)
-                }
-            }
-        }
     }
 
     private fun createReadingRenderable(x: Float, z: Float, strength: Int): TransformableNode? {
@@ -243,11 +294,7 @@ class MainActivity : AppCompatActivity() {
         info.text = cameraPos.toString()
 
         var x = roundToHalf(cameraPos.x.toDouble())
-        //x = if(x.toInt() % 2 == 0) x else x - 1
-
         var z = roundToHalf(cameraPos.z.toDouble())
-        //z = if(z.toInt() % 2 == 0) z else z - 1
-
         return Vector3(x.toFloat(), 10f, z.toFloat())
     }
 
@@ -271,23 +318,19 @@ class MainActivity : AppCompatActivity() {
 
             val gridPosition = getGridPosition()
 
-            lastLocation = getGridPosition()
+            if (started) {
+                lastLocation = getGridPosition()
 
-            lastLocation?.let {
-                if (!mainData.isStarted) mainData.startMeasurement(Location.fromVector(it))
-                mainData.addMeasurement(Location.fromVector(it), strength)
-                gridView?.update(Location.fromVector(it))
+                lastLocation?.let {
+                    if (!mainData.isStarted) mainData.startMeasurement(Location.fromVector(it))
+                    mainData.addMeasurement(Location.fromVector(it), strength)
+                    gridView?.update(Location.fromVector(it))
 
+                }
             }
 
             setReading(gridPosition.x, gridPosition.z, strength)
-
-            val ar = arFragment ?: return
-
             wifi_ssid_strength.text = getString(R.string.signal_strength, strength)
-
-            //val pos = ar.arSceneView.scene.camera.worldPosition
-            //wifi_ssid_strength.text = "( ${pos.x}, ${pos.y}, ${pos.z} )"
         } else {
             wifi_ssid_strength.text = ""
         }

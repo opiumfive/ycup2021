@@ -11,7 +11,9 @@ public class GridView extends View {
 
     private final MainData mainData;
     private final Paint paint;
+    private final Paint textPaint;
     private Location currentLocation;
+    private boolean showNumbers = false;
 
     public GridView(Context context, MainData mainData) {
         super(context);
@@ -20,13 +22,28 @@ public class GridView extends View {
         this.paint = new Paint();
 
         this.paint.setStyle(Paint.Style.FILL);
+
+        this.textPaint = new Paint();
+
+        this.textPaint.setStyle(Paint.Style.FILL);
+        this.textPaint.setTextSize(30);
+        this.textPaint.setColor(Color.WHITE);
+    }
+
+    public boolean isShowNumbers() {
+        return showNumbers;
+    }
+
+    public void setShowNumbers(boolean showNumbers) {
+        this.showNumbers = showNumbers;
+        invalidate();
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
-        paint.setColor(Color.rgb(200, 200, 200));
+        paint.setColor(Color.rgb(255, 255, 255));
         canvas.drawPaint(paint);
 
         if (mainData == null || mainData.getGridInfo() == null)
@@ -54,6 +71,10 @@ public class GridView extends View {
                         rectangleWidth * column + rectangleWidth,
                         rectangleHeight * flippedRow + rectangleHeight,
                         paint);
+
+                if (showNumbers) {
+                    canvas.drawText(String.valueOf((int) signalInfo.getAverageSignalLevel()), rectangleWidth * column + rectangleWidth / 3, rectangleHeight * flippedRow + rectangleHeight / 2, textPaint);
+                }
             }
 
         if (currentLocation != null) {
@@ -87,7 +108,7 @@ public class GridView extends View {
         int redComplement;
 
         if (signalLevel <= -100.0)
-            redComplement = 200;
+            redComplement = 255;
 
         else if (signalLevel >= -30.0)
             redComplement = 0;
@@ -95,6 +116,6 @@ public class GridView extends View {
         else
             redComplement = (int) ((-20 / 7.0) * signalLevel - (600 / 7.0));
 
-        return Color.rgb(200, redComplement, redComplement);
+        return Color.rgb(255, redComplement, redComplement);
     }
 }

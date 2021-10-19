@@ -11,20 +11,22 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.media.ImageReader
+import android.media.SoundPool
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
 import android.view.Surface
 import android.view.SurfaceView
-import kotlinx.coroutines.suspendCancellableCoroutine
+import com.opiumfive.plank.Maths
 import com.opiumfive.plank.VisualizationUtils
 import com.opiumfive.plank.YuvToRgbConverter
 import com.opiumfive.plank.data.Person
-import com.opiumfive.plank.ml.PoseClassifier
 import com.opiumfive.plank.ml.PoseDetector
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.*
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+
 
 class CameraSource(
     private val surfaceView: SurfaceView,
@@ -34,42 +36,28 @@ class CameraSource(
     companion object {
         private const val PREVIEW_WIDTH = 640
         private const val PREVIEW_HEIGHT = 480
-
-        /** Threshold for confidence score. */
         private const val MIN_CONFIDENCE = .2f
         private const val TAG = "Camera Source"
     }
 
     private val lock = Any()
     private var detector: PoseDetector? = null
-    private var classifier: PoseClassifier? = null
     private var yuvConverter: YuvToRgbConverter = YuvToRgbConverter(surfaceView.context)
     private lateinit var imageBitmap: Bitmap
 
-    /** Frame count that have been processed so far in an one second interval to calculate FPS. */
     private var fpsTimer: Timer? = null
     private var frameProcessedInOneSecondInterval = 0
     private var framesPerSecond = 0
 
-    /** Detects, characterizes, and connects to a CameraDevice (used for all camera operations) */
     private val cameraManager: CameraManager by lazy {
         val context = surfaceView.context
         context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     }
 
-    /** Readers used as buffers for camera still shots */
     private var imageReader: ImageReader? = null
-
-    /** The [CameraDevice] that will be opened in this fragment */
     private var camera: CameraDevice? = null
-
-    /** Internal reference to the ongoing [CameraCaptureSession] configured with our parameters */
     private var session: CameraCaptureSession? = null
-
-    /** [HandlerThread] where all buffer reading operations run */
     private var imageReaderThread: HandlerThread? = null
-
-    /** [Handler] corresponding to [imageReaderThread] */
     private var imageReaderHandler: Handler? = null
     private var cameraId: String = ""
 
@@ -89,9 +77,8 @@ class CameraSource(
                         )
                 }
                 yuvConverter.yuvToRgb(image, imageBitmap)
-                // Create rotated version for portrait display
                 val rotateMatrix = Matrix()
-                rotateMatrix.postRotate(90.0f)
+                rotateMatrix.postRotate(-90.0f)
 
                 val rotatedBitmap = Bitmap.createBitmap(
                     imageBitmap, 0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT,
@@ -147,10 +134,8 @@ class CameraSource(
         for (cameraId in cameraManager.cameraIdList) {
             val characteristics = cameraManager.getCameraCharacteristics(cameraId)
 
-            // We don't use a front facing camera in this sample.
             val cameraDirection = characteristics.get(CameraCharacteristics.LENS_FACING)
-            if (cameraDirection != null &&
-                cameraDirection == CameraCharacteristics.LENS_FACING_FRONT
+            if (cameraDirection != null && cameraDirection == CameraCharacteristics.LENS_FACING_BACK
             ) {
                 continue
             }
@@ -165,16 +150,6 @@ class CameraSource(
                 this.detector = null
             }
             this.detector = detector
-        }
-    }
-
-    fun setClassifier(classifier: PoseClassifier?) {
-        synchronized(lock) {
-            if (this.classifier != null) {
-                this.classifier?.close()
-                this.classifier = null
-            }
-            this.classifier = classifier
         }
     }
 
@@ -204,15 +179,12 @@ class CameraSource(
         stopImageReaderThread()
         detector?.close()
         detector = null
-        classifier?.close()
-        classifier = null
         fpsTimer?.cancel()
         fpsTimer = null
         frameProcessedInOneSecondInterval = 0
         framesPerSecond = 0
     }
 
-    // process image
     private fun processImage(bitmap: Bitmap) {
         var person: Person? = null
         var classificationResult: List<Pair<String, Float>>? = null
@@ -220,9 +192,6 @@ class CameraSource(
         synchronized(lock) {
             detector?.estimateSinglePose(bitmap)?.let {
                 person = it
-                classifier?.run {
-                    classificationResult = classify(person)
-                }
             }
         }
         frameProcessedInOneSecondInterval++
@@ -230,7 +199,7 @@ class CameraSource(
             // send fps to view
             listener?.onFPSListener(framesPerSecond)
         }
-        listener?.onDetectedInfo(person?.score, classificationResult)
+        listener?.onDetectedInfo(person?.score, classificationResult, Maths.inPlank(person ?: Person(emptyList(), 0f)))
         person?.let {
             visualize(it, bitmap)
         }
@@ -289,6 +258,6 @@ class CameraSource(
     interface CameraSourceListener {
         fun onFPSListener(fps: Int)
 
-        fun onDetectedInfo(personScore: Float?, poseLabels: List<Pair<String, Float>>?)
+        fun onDetectedInfo(personScore: Float?, poseLabels: List<Pair<String, Float>>?, inPlank: Boolean)
     }
 }

@@ -35,6 +35,14 @@ apply from:"download.gradle"
 
 dependencies {
 
+    /**
+     * через movenet находятся точки частей тела, высчитываются углы между конечностями и через небольшую фильтрацию начинается подсчет времени
+     * пользователь ставит телефон к стенке или какой-либо опоре так, чтобы камера видела его полностью и выполняет упражнение
+     * при начале и окончании упражнения звучит звуковая индикация
+     *
+     * В качестве доработок могу отметить:
+     * * Pose classification - https://google.github.io/mediapipe/solutions/pose_classification.html
+     */
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     implementation 'androidx.core:core-ktx:1.5.0'
     implementation 'androidx.appcompat:appcompat:1.3.0'
@@ -45,4 +53,5 @@ dependencies {
     implementation 'org.tensorflow:tensorflow-lite:2.5.0'
     implementation 'org.tensorflow:tensorflow-lite-gpu:2.5.0'
     implementation 'org.tensorflow:tensorflow-lite-support:0.2.0'
+    implementation 'com.google.code.gson:gson:2.8.8'
 }

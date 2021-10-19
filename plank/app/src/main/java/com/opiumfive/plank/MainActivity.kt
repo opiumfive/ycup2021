@@ -1,25 +1,13 @@
-/* Copyright 2021 The TensorFlow Authors. All Rights Reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-==============================================================================
-*/
-
 package com.opiumfive.plank
 
 import android.Manifest
 import android.app.AlertDialog
 import android.app.Dialog
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.media.SoundPool
 import android.os.Bundle
 import android.os.Process
 import android.view.SurfaceView
@@ -28,18 +16,16 @@ import android.view.WindowManager
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import com.opiumfive.plank.camera.CameraSource
 import com.opiumfive.plank.data.Device
-import com.opiumfive.plank.ml.ModelType
+import com.opiumfive.plank.list.Ex
 import com.opiumfive.plank.ml.MoveNet
-import com.opiumfive.plank.ml.PoseClassifier
-import com.opiumfive.plank.ml.PoseNet
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.util.*
 
 
 class MainActivity : AppCompatActivity() {
@@ -47,43 +33,30 @@ class MainActivity : AppCompatActivity() {
         private const val FRAGMENT_DIALOG = "dialog"
     }
 
-    /** A [SurfaceView] for camera preview.   */
     private lateinit var surfaceView: SurfaceView
-
-    /** Default pose estimation model is 1 (MoveNet Thunder)
-     * 0 == MoveNet Lightning model
-     * 1 == MoveNet Thunder model
-     * 2 == PoseNet model
-     **/
-    private var modelPos = 1
+    private var modelPos = 0
 
     /** Default device is GPU */
-    private var device = Device.CPU
+    private var device = Device.GPU
+
+    var soundPool: SoundPool? = null
+    var soundPoolMap: HashMap<Int, Int>? = null
+    var soundID = 1
+    var detectedCount = 0
+    var undetectedCount = 0
+    var startedTracking = false
+    var startedTrackingDate: Date? = null
 
     private lateinit var tvScore: TextView
     private lateinit var tvFPS: TextView
-    private lateinit var spnDevice: Spinner
-    private lateinit var spnModel: Spinner
-    private lateinit var tvClassificationValue1: TextView
-    private lateinit var tvClassificationValue2: TextView
-    private lateinit var tvClassificationValue3: TextView
-    private lateinit var swClassification: SwitchCompat
     private var cameraSource: CameraSource? = null
-    private var isClassifyPose = false
     private val requestPermissionLauncher =
         registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted: Boolean ->
             if (isGranted) {
-                // Permission is granted. Continue the action or workflow in your
-                // app.
                 openCamera()
             } else {
-                // Explain to the user that the feature is unavailable because the
-                // features requires a permission that the user has denied. At the
-                // same time, respect the user's decision. Don't link to system
-                // settings in an effort to convince the user to change their
-                // decision.
                 ErrorDialog.newInstance(getString(R.string.tfe_pe_request_permission))
                     .show(supportFragmentManager, FRAGMENT_DIALOG)
             }
@@ -113,13 +86,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private var setClassificationListener =
-        CompoundButton.OnCheckedChangeListener { _, isChecked ->
-            showClassificationInfo(isChecked)
-            isClassifyPose = isChecked
-            isPoseClassifier()
-        }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -127,19 +93,27 @@ class MainActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         tvScore = findViewById(R.id.tvScore)
         tvFPS = findViewById(R.id.tvFps)
-        spnModel = findViewById(R.id.spnModel)
-        spnDevice = findViewById(R.id.spnDevice)
         surfaceView = findViewById(R.id.surfaceView)
-        tvClassificationValue1 = findViewById(R.id.tvClassificationValue1)
-        tvClassificationValue2 = findViewById(R.id.tvClassificationValue2)
-        tvClassificationValue3 = findViewById(R.id.tvClassificationValue3)
-        swClassification = findViewById(R.id.swPoseClassification)
-        initSpinner()
-        spnModel.setSelection(modelPos)
-        swClassification.setOnCheckedChangeListener(setClassificationListener)
+
+        soundPool = SoundPool(4, AudioManager.STREAM_MUSIC, 100)
+        soundPoolMap = HashMap()
+        soundPoolMap!![soundID] = soundPool!!.load(this, R.raw.ok, 1)
+
         if (!isCameraPermissionGranted()) {
             requestPermission()
         }
+    }
+
+    fun playSound() {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val curVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
+        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).toFloat()
+        val leftVolume = curVolume / maxVolume
+        val rightVolume = curVolume / maxVolume
+        val priority = 1
+        val no_loop = 0
+        val normal_playback_rate = 1f
+        soundPool?.play(soundID, leftVolume, rightVolume, priority, no_loop, normal_playback_rate)
     }
 
     override fun onStart() {
@@ -179,68 +153,52 @@ class MainActivity : AppCompatActivity() {
 
                         override fun onDetectedInfo(
                             personScore: Float?,
-                            poseLabels: List<Pair<String, Float>>?
+                            poseLabels: List<Pair<String, Float>>?,
+                            inPlank: Boolean
                         ) {
-                            tvScore.text = getString(R.string.tfe_pe_tv_score, personScore ?: 0f)
-                            poseLabels?.sortedByDescending { it.second }?.let {
-                                tvClassificationValue1.text = getString(
-                                    R.string.tfe_pe_tv_classification_value,
-                                    convertPoseLabels(if (it.isNotEmpty()) it[0] else null)
-                                )
-                                tvClassificationValue2.text = getString(
-                                    R.string.tfe_pe_tv_classification_value,
-                                    convertPoseLabels(if (it.size >= 2) it[1] else null)
-                                )
-                                tvClassificationValue3.text = getString(
-                                    R.string.tfe_pe_tv_classification_value,
-                                    convertPoseLabels(if (it.size >= 3) it[2] else null)
-                                )
+                            if (inPlank) detectedCount++
+
+                            if (detectedCount > 10 && !startedTracking) {
+                                playSound()
+                                startedTracking = true
+                                startedTrackingDate = Date()
                             }
+
+                            if (!inPlank && startedTracking) {
+                                undetectedCount++
+                                if (undetectedCount > 10) {
+                                    playSound()
+                                    if (startedTrackingDate != null) {
+                                        val ex = Ex("Планка", startedTrackingDate!!, Date())
+                                        setResult(RESULT_OK, Intent().apply { putExtra("item", ex) })
+                                    } else {
+                                        setResult(RESULT_CANCELED)
+                                    }
+                                    finish()
+
+                                }
+                            } else if (!inPlank) {
+                                detectedCount = 0
+                                undetectedCount = 0
+                            }
+                            if (startedTracking && startedTrackingDate != null) {
+                                val dur = (Date().time - startedTrackingDate!!.time) / 1000
+                                tvScore.text = "Длительность $dur"
+                            } else {
+                                tvScore.text = "Пока нет данных.. встаньте в планку"
+                            }
+
+
                         }
 
                     }).apply {
                         prepareCamera()
                     }
-                isPoseClassifier()
                 lifecycleScope.launch(Dispatchers.Main) {
                     cameraSource?.initCamera()
                 }
             }
             createPoseEstimator()
-        }
-    }
-
-    private fun convertPoseLabels(pair: Pair<String, Float>?): String {
-        if (pair == null) return "empty"
-        return "${pair.first} (${String.format("%.2f", pair.second)})"
-    }
-
-    private fun isPoseClassifier() {
-        cameraSource?.setClassifier(if (isClassifyPose) PoseClassifier.create(this) else null)
-    }
-
-    // Init spinner that user can choose model and device they want.
-    private fun initSpinner() {
-        ArrayAdapter.createFromResource(
-            this,
-            R.array.tfe_pe_models_array,
-            android.R.layout.simple_spinner_item
-        ).also { adapter ->
-            // Specify the layout to use when the list of choices appears
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            // Apply the adapter to the spinner
-            spnModel.adapter = adapter
-            spnModel.onItemSelectedListener = changeModelListener
-        }
-
-        ArrayAdapter.createFromResource(
-            this,
-            R.array.tfe_pe_device_name, android.R.layout.simple_spinner_item
-        ).also { adaper ->
-            adaper.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-
-            spnDevice.adapter = adaper
-            spnDevice.onItemSelectedListener = changeDeviceListener
         }
     }
 
@@ -264,24 +222,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun createPoseEstimator() {
-        val poseDetector = when (modelPos) {
-            0 -> {
-                MoveNet.create(this, device)
-            }
-            1 -> {
-                MoveNet.create(this, device, ModelType.Thunder)
-            }
-            else -> {
-                PoseNet.create(this, device)
-            }
-        }
+        val poseDetector = MoveNet.create(this, device)
         cameraSource?.setDetector(poseDetector)
-    }
-
-    private fun showClassificationInfo(isChecked: Boolean) {
-        tvClassificationValue1.visibility = if (isChecked) View.VISIBLE else View.GONE
-        tvClassificationValue2.visibility = if (isChecked) View.VISIBLE else View.GONE
-        tvClassificationValue3.visibility = if (isChecked) View.VISIBLE else View.GONE
     }
 
     private fun requestPermission() {
@@ -290,12 +232,9 @@ class MainActivity : AppCompatActivity() {
                 this,
                 Manifest.permission.CAMERA
             ) -> {
-                // You can use the API that requires the permission.
                 openCamera()
             }
             else -> {
-                // You can directly ask for the permission.
-                // The registered ActivityResultCallback gets the result of this request.
                 requestPermissionLauncher.launch(
                     Manifest.permission.CAMERA
                 )
@@ -303,9 +242,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Shows an error message dialog.
-     */
     class ErrorDialog : DialogFragment() {
 
         override fun onCreateDialog(savedInstanceState: Bundle?): Dialog =

@@ -1,19 +1,3 @@
-/* Copyright 2021 The TensorFlow Authors. All Rights Reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-==============================================================================
-*/
-
 package com.opiumfive.plank.ml
 
 import android.content.Context
@@ -33,11 +17,6 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-enum class ModelType {
-    Lightning,
-    Thunder
-}
-
 class MoveNet(private val interpreter: Interpreter, private var gpuDelegate: GpuDelegate?) :
     PoseDetector {
 
@@ -45,17 +24,13 @@ class MoveNet(private val interpreter: Interpreter, private var gpuDelegate: Gpu
         private const val MIN_CROP_KEYPOINT_SCORE = .2f
         private const val CPU_NUM_THREADS = 4
 
-        // Parameters that control how large crop region should be expanded from previous frames'
-        // body keypoints.
+
         private const val TORSO_EXPANSION_RATIO = 1.9f
         private const val BODY_EXPANSION_RATIO = 1.2f
 
-        // TFLite file names.
         private const val LIGHTNING_FILENAME = "movenet_lightning.tflite"
-        private const val THUNDER_FILENAME = "movenet_thunder.tflite"
 
-        // allow specifying model type.
-        fun create(context: Context, device: Device, modelType: ModelType): MoveNet {
+        fun create(context: Context, device: Device): MoveNet {
             val options = Interpreter.Options()
             var gpuDelegate: GpuDelegate? = null
             options.setNumThreads(CPU_NUM_THREADS)
@@ -72,17 +47,12 @@ class MoveNet(private val interpreter: Interpreter, private var gpuDelegate: Gpu
                 Interpreter(
                     FileUtil.loadMappedFile(
                         context,
-                        if (modelType == ModelType.Lightning) LIGHTNING_FILENAME
-                        else THUNDER_FILENAME
+                        LIGHTNING_FILENAME
                     ), options
                 ),
                 gpuDelegate
             )
         }
-
-        // default to lightning.
-        fun create(context: Context, device: Device): MoveNet =
-            create(context, device, ModelType.Lightning)
     }
 
     private var cropRegion: RectF? = null
@@ -308,12 +278,6 @@ class MoveNet(private val interpreter: Interpreter, private var gpuDelegate: Gpu
         }
     }
 
-    /**
-     * Calculates the maximum distance from each keypoints to the center location.
-     * The function returns the maximum distances from the two sets of keypoints:
-     * full 17 keypoints and 4 torso keypoints. The returned information will be
-     * used to determine the crop size. See determineRectF for more detail.
-     */
     private fun determineTorsoAndBodyDistances(
         keyPoints: List<KeyPoint>,
         targetKeyPoints: List<KeyPoint>,
