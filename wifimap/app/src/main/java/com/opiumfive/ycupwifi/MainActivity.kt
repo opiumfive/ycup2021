@@ -1,8 +1,8 @@
 package com.opiumfive.ycupwifi
 
-import android.R.attr.textColor
-import android.R.attr.textSize
+import android.Manifest
 import android.content.Context
+import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -11,10 +11,13 @@ import android.os.Bundle
 import android.os.Handler
 import android.util.Log
 import android.util.SparseArray
+import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.View
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.ColorUtils
+import com.androidisland.ezpermission.EzPermission
 import com.google.ar.core.HitResult
 import com.google.ar.core.Plane
 import com.google.ar.core.Pose
@@ -32,8 +35,6 @@ import java.util.concurrent.CompletableFuture
 
 data class Reading(var strength: Int, var node: TransformableNode?)
 
-// TODO permissions
-
 class MainActivity : AppCompatActivity() {
     private var materialColors: MutableList<Material> = mutableListOf()
     private var materialColorsInt: MutableList<Color> = mutableListOf()
@@ -50,57 +51,76 @@ class MainActivity : AppCompatActivity() {
 
     private var gridView: GridView? = null
     private val mainData = MainData()
+    private var inited = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         if (!checkIsSupportedDeviceOrFinish(this)) {
+            Toast.makeText(this, "Ваше устройство не поддерживается", Toast.LENGTH_SHORT).show()
             return
         }
 
-        loadData()
-
         setContentView(R.layout.activity_main)
 
-        arFragment = supportFragmentManager.findFragmentById(R.id.ux_fragment) as ArFragment
-        arFragment?.arSceneView?.scene?.addOnUpdateListener(this::onSceneUpdate)
-        arFragment?.setOnTapArPlaneListener(this::onTapArPlaneListener)
+        EzPermission.with(this)
+            .permissions(
+                Manifest.permission.CAMERA,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
+            .request { granted, denied, permanentlyDenied ->
+               if (granted.size == 2) {
+                   loadData()
 
-        gridView = GridView(this, mainData)
-        gridViewFrameLayout.addView(gridView)
+                   arFragment = supportFragmentManager.findFragmentById(R.id.ux_fragment) as ArFragment
+                   arFragment?.arSceneView?.scene?.addOnUpdateListener(this@MainActivity::onSceneUpdate)
+                   arFragment?.setOnTapArPlaneListener(this@MainActivity::onTapArPlaneListener)
 
-        button.setOnClickListener {
-            if (!started) {
-                button.text = "Закончить"
-                wifi_ssid_strength.visibility = View.VISIBLE
-                gridViewFrameLayout.visibility = View.VISIBLE
-                instructions_view.visibility = View.GONE
-                started = true
-                val ar = arFragment ?: return@setOnClickListener
-                if (anchorNode == null && ar.arSceneView.arFrame.camera.trackingState === TrackingState.TRACKING) {
-                    val ar = arFragment ?: return@setOnClickListener
-                    val cameraPos = ar.arSceneView.scene.camera.worldPosition
+                   gridView = GridView(this@MainActivity, mainData)
+                   gridViewFrameLayout.addView(gridView)
+
+                   button.setOnClickListener {
+                       if (!started && gridView?.isShowNumbers == false) {
+                           button.text = "Закончить"
+                           wifi_ssid_strength.visibility = View.VISIBLE
+                           gridViewFrameLayout.visibility = View.VISIBLE
+                           instructions_view.visibility = View.GONE
+                           started = true
+                           val ar = arFragment ?: return@setOnClickListener
+                           if (anchorNode == null && ar.arSceneView.arFrame.camera.trackingState === TrackingState.TRACKING) {
+                               val ar = arFragment ?: return@setOnClickListener
+                               val cameraPos = ar.arSceneView.scene.camera.worldPosition
 
 
-                    val pos = floatArrayOf(cameraPos.x, 0f, cameraPos.z)
-                    val rotation = floatArrayOf(0f, 0f, 0f, 1f)
-                    val anchor = ar.arSceneView.session.createAnchor(Pose(pos, rotation))
-                    anchorNode = AnchorNode(anchor)
-                    anchorNode?.setParent(ar.arSceneView.scene)
+                               val pos = floatArrayOf(cameraPos.x, 0f, cameraPos.z)
+                               val rotation = floatArrayOf(0f, 0f, 0f, 1f)
+                               val anchor = ar.arSceneView.session.createAnchor(Pose(pos, rotation))
+                               anchorNode = AnchorNode(anchor)
+                               anchorNode?.setParent(ar.arSceneView.scene)
 
-                    rootNode = Node()
-                    rootNode?.setParent(anchorNode)
-                }
-            } else {
-                started = false
-                //TODO стоп и построить карту
-                gridViewFrameLayout?.layoutParams?.height = 1000
-                gridViewFrameLayout?.layoutParams?.width = 1000
-                gridView?.isShowNumbers = true
-                gridView?.requestLayout()
-                button.visibility = View.GONE
+                               rootNode = Node()
+                               rootNode?.setParent(anchorNode)
+                           }
+                       } else if (gridView?.isShowNumbers == false) {
+                           started = false
+                           gridViewFrameLayout?.layoutParams?.height = Resources.getSystem().displayMetrics.widthPixels - 50
+                           gridViewFrameLayout?.layoutParams?.width = Resources.getSystem().displayMetrics.widthPixels - 50
+                           gridView?.isShowNumbers = true
+                           gridView?.requestLayout()
+                           button.text = "Свернуть карту"
+                       } else {
+                           gridViewFrameLayout?.layoutParams?.height = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 150f, Resources.getSystem().displayMetrics).toInt()
+                           gridViewFrameLayout?.layoutParams?.width = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 150f, Resources.getSystem().displayMetrics).toInt()
+                           gridView?.isShowNumbers = false
+                           gridView?.requestLayout()
+                           button.visibility = View.GONE
+                       }
+                   }
+                   inited = true
+               } else {
+                   Toast.makeText(this@MainActivity, "Не могу работать без разрешений", Toast.LENGTH_SHORT).show()
+               }
             }
-        }
     }
 
     private fun onSceneUpdate(frameTime: FrameTime) {
@@ -208,7 +228,7 @@ class MainActivity : AppCompatActivity() {
 
         Log.d("adam", "scaleFactor: $scaleFactor level: $level")
 
-        val height = 0.25f //* scaleFactor
+        val height = 0.05f //* scaleFactor
         val size = 0.05f
 
         val material = getBarColor(scaleFactor)
@@ -313,6 +333,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateViews() {
+        if (!inited) return
+        if (wifi_ssid_strength == null) return
         if (wifiManager().connectionInfo != null) {
             val strength = getSignalStrength()
 

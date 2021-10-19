@@ -41,8 +41,11 @@ dependencies {
      * а так же получается красивая AR визуализация точек, в которых хороший\плохой сигнал
      *
      * Возможные доработки:
-     * - решение без AR с адаптивным sensor fusion
+     * - расширяемая карта
+     * - визуализация на AR стрелочкой лучших точек (сейчас сферы просто красятся зеленым
+     * - решение без AR с адаптивным sensor fusion для устройств без ARCore
      * - выбор ssid
+     * - указатель текущего направления, помимо позиции
      */
 
     implementation fileTree(dir: 'libs', include: ['*.jar'])
@@ -52,6 +55,9 @@ dependencies {
     implementation 'com.google.ar.sceneform:core:1.4.0'
     implementation 'com.google.ar.sceneform.ux:sceneform-ux:1.4.0'
     implementation 'com.github.SanojPunchihewa:GlowButton:1.0.1'
+
+    implementation 'com.androidisland.ezpermission:ezpermission:0.1.4'
+   // implementation 'com.guolindev.permissionx:permissionx:1.6.0'
 }
 
 apply plugin: 'com.google.ar.sceneform.plugin'

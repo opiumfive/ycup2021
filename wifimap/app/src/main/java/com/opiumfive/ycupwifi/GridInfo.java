@@ -1,6 +1,8 @@
 package com.opiumfive.ycupwifi;
 
 
+import android.content.res.Resources;
+import android.util.TypedValue;
 
 public class GridInfo {
     private final double cellWidth; // as from east to west (in meters)
@@ -13,13 +15,12 @@ public class GridInfo {
     private final Location centerLocation;
 
     GridInfo(Location centerLocation) {
-        // as for now, let the grid's cells be 10m x 10m
-        cellWidth = 10.0;
-        cellHeight = 10.0;
 
-        // as for now, let it consist of 10 x 10 pieces
-        columnsCount = 10;
-        rowsCount = 10;
+        columnsCount = 20;
+        rowsCount = 20;
+
+        cellWidth = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 150, Resources.getSystem().getDisplayMetrics()) / columnsCount;
+        cellHeight = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 150, Resources.getSystem().getDisplayMetrics()) / rowsCount;
 
         this.centerLocation = centerLocation;
     }
@@ -60,8 +61,8 @@ public class GridInfo {
     public CellPosition computeCellPosition(Location location) {
         Location centerLocation = getCenterLocation();
 
-        double yOffset = cellHeight * GeographicalCalculator.InMeters.getNorthwardsDisplacement(centerLocation, location);
-        double xOffset = cellWidth * GeographicalCalculator.InMeters.getEastwardsDisplacement(centerLocation, location);
+        double yOffset = cellHeight * GeographicalCalculator.InMeters.getNorthwardsDisplacement(centerLocation, location) * 2;
+        double xOffset = cellWidth * GeographicalCalculator.InMeters.getEastwardsDisplacement(centerLocation, location) * 2;
 
         yOffset += getHeight() / 2;
         xOffset += getWidth() / 2;

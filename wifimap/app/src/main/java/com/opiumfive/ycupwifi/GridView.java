@@ -26,8 +26,8 @@ public class GridView extends View {
         this.textPaint = new Paint();
 
         this.textPaint.setStyle(Paint.Style.FILL);
-        this.textPaint.setTextSize(30);
-        this.textPaint.setColor(Color.WHITE);
+        this.textPaint.setTextSize(18);
+        this.textPaint.setColor(Color.BLACK);
     }
 
     public boolean isShowNumbers() {
@@ -72,8 +72,8 @@ public class GridView extends View {
                         rectangleHeight * flippedRow + rectangleHeight,
                         paint);
 
-                if (showNumbers) {
-                    canvas.drawText(String.valueOf((int) signalInfo.getAverageSignalLevel()), rectangleWidth * column + rectangleWidth / 3, rectangleHeight * flippedRow + rectangleHeight / 2, textPaint);
+                if (showNumbers && signalInfo.getAverageSignalLevel() != -100) {
+                    canvas.drawText(String.valueOf((int) signalInfo.getAverageSignalLevel()), rectangleWidth * column + rectangleWidth / 4, rectangleHeight * flippedRow + rectangleHeight / 3, textPaint);
                 }
             }
 
@@ -116,6 +116,6 @@ public class GridView extends View {
         else
             redComplement = (int) ((-20 / 7.0) * signalLevel - (600 / 7.0));
 
-        return Color.rgb(255, redComplement, redComplement);
+        return Color.rgb(redComplement, 255, redComplement);
     }
 }
