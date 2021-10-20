@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/rootView"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:keepScreenOn="true"
+    tools:context=".MainActivity">
+
+    <fragment xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:map="http://schemas.android.com/apk/res-auto"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:id="@+id/map"
+        android:name="com.google.android.gms.maps.SupportMapFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        tools:context=".MapsActivity" />
+
+    <ImageView
+        android:layout_gravity="center"
+        android:layout_width="100dp"
+        android:visibility="gone"
+        android:src="@drawable/cross"
+        android:layout_height="100dp"/>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab"
+        android:layout_width="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_margin="24dp"
+        android:elevation="2dp"
+        android:visibility="gone"
+        android:contentDescription="Добавить"
+        android:src="@android:drawable/ic_input_add"
+        android:layout_height="wrap_content" />
+
+    <TextView
+        android:id="@+id/email"
+        android:text="Нужно указать Email"
+        android:background="#7f000000"
+        android:textColor="#fff"
+        android:layout_gravity="center_horizontal"
+        android:layout_margin="24dp"
+        android:padding="5dp"
+        android:textSize="18sp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabList"
+        android:layout_width="wrap_content"
+        android:layout_gravity="bottom|right"
+        android:layout_margin="24dp"
+        android:elevation="2dp"
+        android:contentDescription="Список"
+        android:src="@android:drawable/ic_menu_myplaces"
+        android:layout_height="wrap_content" />
+
+</FrameLayout>
