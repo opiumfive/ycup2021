@@ -39,7 +39,7 @@ class MailService {
             .post(body)
             .addHeader("content-type", "application/json")
             .addHeader("x-rapidapi-host", "rapidprod-sendgrid-v1.p.rapidapi.com")
-            .addHeader("x-rapidapi-key", "ead04a3a00msh442ddf1888e702cp1a43ddjsn586a9083ebb8")
+            .addHeader("x-rapidapi-key", "xxx")
             .build()
 
         val response = try {
